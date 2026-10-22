@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saúde em Pares - Jogo da Memória</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:20px;font-family:Arial,sans-serif;background:#eef8f1;color:#173b30;text-align:center}
+main{max-width:850px;margin:auto}
+h1{color:#176b57}
+p{line-height:1.5}
+.stats{display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin:20px}
+.stat{background:white;padding:12px 18px;border-radius:12px}
+.stat strong{display:block;font-size:1.4rem;color:#176b57}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.card{height:140px;border:0;border-radius:12px;background:#176b57;color:white;font-size:1rem;font-weight:bold;padding:8px;cursor:pointer;box-shadow:0 3px 7px #0002}
+.card .back{display:none}
+.card.flipped,.card.matched{background:white;color:#164d3e;border:2px solid #70b58c}
+.card.flipped .front,.card.matched .front{display:none}
+.card.flipped .back,.card.matched .back{display:block}
+.card.matched{background:#dcf5e4}
+button#restart{padding:11px 18px;border:0;border-radius:10px;background:#10483d;color:white;font-weight:bold;margin:16px;cursor:pointer}
+.info{text-align:left;background:white;border-radius:14px;padding:18px;margin-top:24px}
+.info h2{color:#176b57}
+.info p{margin:10px 0}
+footer{font-size:.85rem;color:#566b62;margin:18px 0}
+@media(max-width:520px){body{padding:12px}.grid{gap:6px}.card{height:115px;font-size:.85rem;padding:5px}.stats{gap:8px;margin:15px 0}.stat{padding:9px}.stat strong{font-size:1.15rem}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>🩺 Saúde em Pares</h1>
+<p>Jogo da memória: encontre os 8 pares combinando cada condição de saúde com um hábito que pode ajudar.</p>
+</header>
+<div class="stats">
+<div class="stat"><strong id="moves">0</strong>Jogadas</div>
+<div class="stat"><strong id="pairs">0 / 8</strong>Pares encontrados</div>
+<div class="stat"><strong id="left">16</strong>Cartas restantes</div>
+</div>
+<button id="restart">↻ Reiniciar jogo</button>
+<section class="grid" id="board" aria-label="Jogo da memória"></section>
+<p id="message" aria-live="polite">Toque em duas cartas para encontrar um par.</p>
+<section class="info">
+<h2>💡 Aprenda enquanto joga</h2>
+<p><b>Hipertensão:</b> reduzir o sal, ter uma alimentação equilibrada e praticar atividade física pode ajudar a controlar a pressão.</p>
+<p><b>Hipotensão:</b> hidratar-se e levantar devagar pode ajudar em alguns casos. Tonturas frequentes precisam de avaliação profissional.</p>
+<p><b>Colesterol alto:</b> comer alimentos ricos em fibras e praticar atividade física contribui para a saúde cardiovascular.</p>
+<p><b>Diabetes:</b> alimentação equilibrada e movimento regular ajudam no controle da glicose.</p>
+<p><b>Obesidade:</b> hábitos sustentáveis de alimentação, sono e atividade física favorecem a saúde.</p>
+<p><b>Osteoporose:</b> exercícios adequados e alimentação com cálcio contribuem para a saúde dos ossos.</p>
+<p><b>Insônia:</b> manter horários regulares e diminuir o uso de telas antes de dormir pode ajudar.</p>
+<p><b>Estresse:</b> pausas, respiração lenta, lazer e apoio social podem ajudar a lidar com o estresse.</p>
+</section>
+<footer>Material educativo. Hábitos saudáveis não substituem orientação profissional nem tratamentos prescritos.</footer>
+</main>
+<script>
+const cards=[
+{id:1,type:'d',emoji:'❤️',title:'Hipertensão',hint:'Pressão alta'},
+{id:1,type:'h',emoji:'🥗',title:'Reduzir sal e se movimentar',hint:'Hábito saudável'},
+{id:2,type:'d',emoji:'💧',title:'Hipotensão',hint:'Pressão baixa'},
+{id:2,type:'h',emoji:'🚰',title:'Hidratar-se e levantar devagar',hint:'Hábito saudável'},
+{id:3,type:'d',emoji:'🫀',title:'Colesterol alto',hint:'Saúde cardiovascular'},
+{id:3,type:'h',emoji:'🥦',title:'Comer fibras e se exercitar',hint:'Hábito saudável'},
+{id:4,type:'d',emoji:'🩸',title:'Diabetes',hint:'Glicose no sangue'},
+{id:4,type:'h',emoji:'🚶',title:'Alimentação equilibrada e movimento',hint:'Hábito saudável'},
+{id:5,type:'d',emoji:'🌱',title:'Obesidade',hint:'Saúde e bem-estar'},
+{id:5,type:'h',emoji:'🍎',title:'Hábitos sustentáveis no dia a dia',hint:'Hábito saudável'},
+{id:6,type:'d',emoji:'🦴',title:'Osteoporose',hint:'Saúde dos ossos'},
+{id:6,type:'h',emoji:'🥛',title:'Cálcio e exercícios adequados',hint:'Hábito saudável'},
+{id:7,type:'d',emoji:'🌙',title:'Insônia',hint:'Dificuldade para dormir'},
+{id:7,type:'h',emoji:'😴',title:'Horários regulares de sono',hint:'Hábito saudável'},
+{id:8,type:'d',emoji:'🧠',title:'Estresse',hint:'Tensão do dia a dia'},
+{id:8,type:'h',emoji:'🌿',title:'Pausas e respiração lenta',hint:'Hábito saudável'}
+];
+const board=document.getElementById('board');
+const movesText=document.getElementById('moves');
+const pairsText=document.getElementById('pairs');
+const leftText=document.getElementById('left');
+const message=document.getElementById('message');
+let first=null,second=null,locked=false,moves=0,found=0,timer=null;
+function shuffle(list){
+ const a=[...list];
+ for(let i=a.length-1;i>0;i--){
+  const j=Math.floor(Math.random()*(i+1));
+  [a[i],a[j]]=[a[j],a[i]];
+ }
+ return a;
+}
+function update(){
+ movesText.textContent=moves;
+ pairsText.textContent=found+' / 8';
+ leftText.textContent=16-found*2;
+}
+function start(){
+ clearTimeout(timer);
+ first=null;second=null;locked=false;moves=0;found=0;
+ update();
+ message.textContent='Toque em duas cartas para encontrar um par.';
+ board.innerHTML='';
+ shuffle(cards).forEach((card,index)=>{
+  const btn=document.createElement('button');
+  btn.type='button';btn.className='card';
+  btn.setAttribute('aria-label','Carta virada para baixo');
+  btn.innerHTML='<span class="front">❔<br>Toque para virar</span><span class="back"><span>'+card.emoji+'</span><br><strong></strong><br><small></small></span>';
+  btn.querySelector('strong').textContent=card.title;
+  btn.querySelector('small').textContent=card.hint;
+  btn.addEventListener('click',()=>flip(btn,card));
+  board.appendChild(btn);
+ });
+}
+function flip(btn,card){
+ if(locked||btn.classList.contains('flipped')||btn.classList.contains('matched'))return;
+ btn.classList.add('flipped');
+ if(!first){first={btn,card};return;}
+ second={btn,card};moves++;update();
+ if(first.card.id===second.card.id&&first.card.type!==second.card.type){
+  first.btn.classList.add('matched');
+  second.btn.classList.add('matched');
+  found++;first=null;second=null;update();
+  if(found===8)message.textContent='🎉 Parabéns! Você encontrou os 8 pares em '+moves+' jogadas!';
+  else message.textContent='✅ Par correto! Continue jogando.';
+ }else{
+  locked=true;message.textContent='Não formam um par. Tente novamente!';
+  timer=setTimeout(()=>{
+   first.btn.classList.remove('flipped');
+   second.btn.classList.remove('flipped');
+   first=null;second=null;locked=false;
+  },900);
+ }
+}
+document.getElementById('restart').addEventListener('click',start);
+start();
+</script>
+</body>
+</html>
